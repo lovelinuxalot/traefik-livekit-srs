@@ -70,7 +70,7 @@ This repo contains information how to set this config up and run
 - When its running, open VLC > Go to File > Open Network Stream
 - Test the following URLS
   - RTMP: rtmp://rtmp.flypov.com/live/livestream
-  - HTTP: https://hls.flypov.com:8080/live/livestream.m3u8
+  - HTTP: http://hls.flypov.com:8080/live/livestream.m3u8
 
 - WebRTC is also enabled on the container, honestly I dont know how to test it, so I have left that to you, if you know how to test it.
 
