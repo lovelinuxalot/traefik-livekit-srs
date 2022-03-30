@@ -1,0 +1,73 @@
+version: "3.8"
+
+volumes:
+  cache:
+    driver: local
+
+networks:
+  web:
+    external: true
+  internal:
+    external: false
+
+services:
+  traefik:
+    image: traefik:v2.2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/traefik/traefik.toml:/traefik.toml
+      - ${PWD}/traefik/traefik_dynamic.toml:/traefik_dynamic.toml
+      - ${PWD}/traefik/acme.json:/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - internal
+      - web
+
+  livekit:
+    image: livekit/livekit-server
+    labels:
+      - traefik.http.routers.livekit.rule=Host(`lv.flypov.com`)
+      - traefik.http.routers.livekit.tls=true
+      - traefik.http.routers.livekit.tls.certresolver=lets-encrypt
+      - traefik.port=7880
+    command: --config /livekit.yaml --node-ip 45.32.102.73
+    volumes:
+      - ${PWD}/livekit/livekit.yaml:/livekit.yaml
+    ports:
+      - "7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    networks:
+      - web
+      - internal
+    depends_on:
+      - redis
+  
+  redis:
+    image: redis:6.2-alpine
+    labels:
+      - traefik.enable=false
+    command: redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes:
+      - cache:/data
+    ports:
+      - "6379"
+    networks:
+      - internal
+
+  srs:
+    image: ossrs/srs:4
+    labels: 
+      - traefik.http.routers.srs.rule=Host(`srs.flypov.com`)
+    command: ./objs/srs -c conf/docker.conf
+    environment:
+      CANDIDATE: "172.18.0.3"
+    ports:
+      - "8080:8080"
+      - "1935:1935"
+      - "1985:1985"
+      - "8000:8000/udp"
+    networks:
+      - web
