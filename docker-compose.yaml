@@ -3,6 +3,8 @@ version: "3.8"
 volumes:
   cache:
     driver: local
+  db_data:
+    driver: local
 
 networks:
   web:
@@ -71,3 +73,47 @@ services:
       - "8000:8000/udp"
     networks:
       - web
+
+  postgres:
+    image: postgres:12
+    labels:
+      - traefik.enable=false
+    restart: always
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432"
+    networks:
+      - internal
+
+  graphql-engine:
+    image: hasura/graphql-engine:v2.4.0
+    labels:
+      - traefik.http.routers.graphql.rule=Host(`graphql.flypov.com`)
+      - traefik.http.routers.graphql.tls=true
+      - traefik.http.routers.graphql.tls.certresolver=lets-encrypt
+      - traefik.http.routers.graphql.middlewares=simpleAuth@file
+      - traefik.port=8080
+    ports:
+      - "8080"
+    depends_on:
+      - "postgres"
+    restart: always
+    environment:
+      ## postgres database to store Hasura metadata
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres
+      ## this env var can be used to add the above postgres database to Hasura as a data source. this can be removed/updated based on your needs
+      PG_DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres
+      ## enable the console served by server
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true" # set to "false" to disable console
+      ## enable debugging mode. It is recommended to disable this in production
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      ## uncomment next line to set an admin secret
+      # HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
+    networks:
+      - web
+      - internal
+
